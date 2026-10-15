@@ -72,7 +72,7 @@ function Install-ManagedTool($Tool, [string]$Root) {
     New-Item -ItemType Directory -Path (Get-ExtendedPath $staging) -Force | Out-Null
     try {
         $archive = Join-Path $staging 'download.zip'
-        Invoke-WebRequest -Uri $Tool.URL -OutFile (Get-ExtendedPath $archive) -UseBasicParsing
+        Invoke-WebRequest -Uri $Tool.URL -OutFile $archive -UseBasicParsing
         if ((Get-FileHash -LiteralPath (Get-ExtendedPath $archive) -Algorithm SHA256).Hash -ne $Tool.SHA256) {
             throw "SHA-256 non valido per $($Tool.Name). Nessun archivio estratto."
         }
