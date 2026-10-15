@@ -4,6 +4,7 @@ analysis/captures/**
 analysis/tmp/**
 
 # Local tool configuration and secrets
+.tools/
 .env
 .env.*
 !.env.example
