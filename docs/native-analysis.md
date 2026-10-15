@@ -2,7 +2,7 @@
 
 ## Prima sessione
 
-Per installare Ghidra facoltativamente o collegarne una copia esistente, avvia `setup.bat` e segui [la guida al setup](setup-ghidra.md).
+Per scegliere il tipo di analisi, consulta [il catalogo REA](rea-capabilities.md). Avvia `setup.bat` per creare un profilo. Per installare Ghidra facoltativamente o collegarne una copia esistente, avvia `install-ghidra.bat` e segui [la guida Ghidra](setup-ghidra.md).
 
 1. Controlla la registrazione Codex con `npx.cmd --yes rea-agents@6.5.0 doctor --client codex --json` e verifica che gli strumenti REA siano presenti nella sessione.
 2. Verifica il provider scelto con `npx.cmd --yes rea-agents@6.5.0 doctor --provider ghidra --json` oppure `--provider ida`. Da un terminale separato, imposta i percorsi indicati nella [guida al setup](setup-ghidra.md#approva-il-collegamento-mcp).

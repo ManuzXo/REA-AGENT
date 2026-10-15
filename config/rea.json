@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "reaVersion": "6.5.0",
+  "templates": {
+    "builtin": { "description": "Analisi integrate JS/Electron, .NET, Go, Rust, Flutter, archivi, HAR/SAZ, SQLite ed EVM secondo host e versione Node.", "environment": {} },
+    "native-ghidra": { "description": "Ghidra 12.1.x e JDK 21+. Windows x64 sperimentale.", "environment": { "REA_ANALYSIS_PROVIDER": "ghidra" }, "requiredEnvironment": ["GHIDRA_INSTALL_DIR", "JAVA_HOME"], "doctorProvider": "ghidra" },
+    "native-ida": { "description": "IDA con server MCP upstream avviato e licenza propria.", "environment": { "REA_ANALYSIS_PROVIDER": "ida" }, "requiredEnvironment": ["REA_IDA_MCP_CONFIG"], "doctorProvider": "ida" },
+    "native-hopper": { "description": "Hopper su macOS/Linux. Non disponibile su Windows nativo.", "environment": { "REA_ANALYSIS_PROVIDER": "hopper" }, "requiredEnvironment": ["HOPPER_LAUNCHER_PATH"], "doctorProvider": "hopper", "host": "linux-macos" },
+    "android": { "description": "JADX headless MCP, JDK, adb e Apktool opzionali per dispositivi e risorse.", "environment": {}, "requiredEnvironment": ["REA_JADX_MCP_JAR", "JAVA_HOME"], "doctorProvider": "jadx" },
+    "browser": { "description": "Browser Chrome/Edge e CDP. Seguire la guida per avvio e autorizzazione runtime.", "environment": {} },
+    "offline-tools": { "description": "WABT, GNU objdump e Rizin. Configurare solo gli helper desiderati.", "environment": {} },
+    "linux": { "description": "Firmware, pwntools, crash, pacchetti, segnali e runtime su host Linux. Non eseguire con percorsi Windows.", "environment": {}, "host": "linux" }
+  }
+}

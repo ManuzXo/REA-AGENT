@@ -5,6 +5,7 @@ analysis/tmp/**
 
 # Local tool configuration and secrets
 .tools/
+.rea/
 .env
 .env.*
 !.env.example
