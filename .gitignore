@@ -1,0 +1,11 @@
+# Local binaries, captures, and generated analysis data
+analysis/samples/**
+analysis/captures/**
+analysis/tmp/**
+
+# Local tool configuration and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
