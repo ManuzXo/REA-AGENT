@@ -69,7 +69,7 @@ try {
     Assert (($script:Calls[-1].Arguments -join ' ') -match 'doctor --provider jadx --json$') 'JADX e un provider doctor reale'
     Invoke-ProfileSetup -Action Doctor -Profile base
     Assert (($script:Calls[-1].Arguments -join ' ') -match 'capabilities --json$') 'builtin ispeziona capacita reali senza cercare la registrazione standard rea'
-    Assert-Fails { Invoke-ProfileSetup -Action Register -Profile base -Client cursor } 'Register usa codex'
+    Assert-Fails { Invoke-ProfileSetup -Action Register -Profile base -Client cursor } 'Register supporta codex e claude'
     $argvPath = Join-Path $testRoot 'native-argv.json'
     $values = @('REA_JSON=["a", "b"]', 'REA_PATH=C:\folder with spaces\', 'REA_URL=https://example.invalid/?a=1&b=2', 'REA_PATTERN=\\"quoted"', 'REA_PERCENT=100% (x) | x', '')
     $nodePath = (Get-Command node.exe).Source
@@ -98,6 +98,17 @@ try {
     Invoke-ProfileSetup -Action Client -Profile native -Client codex -Yes
     [string[]]$clientRegistrationArgs = Get-Content -LiteralPath $script:RegistrationPath -Raw | ConvertFrom-Json
     Assert ((ConvertTo-Json -InputObject $clientRegistrationArgs -Compress) -eq (ConvertTo-Json -InputObject $registrationArgs -Compress)) 'Client Codex riusa la stessa registrazione diretta del profilo'
+    $script:ClaudeCalls = Join-Path $testRoot 'claude-argv.jsonl'
+    function Get-ClaudeRegistrationCommand {
+        return [pscustomobject]@{ Executable = $script:RegistrationNode; Prefix = @('-e', 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)) + "\n")', $script:ClaudeCalls) }
+    }
+    Invoke-ProfileSetup -Action Register -Profile native -Client claude -Yes
+    $claudeArgv = @(Get-Content -LiteralPath $script:ClaudeCalls | ForEach-Object { , [string[]]($_ | ConvertFrom-Json) })
+    Assert ($claudeArgv.Count -eq 2 -and ($claudeArgv[0] -join ' ') -eq 'mcp remove rea-native --scope local') 'registrazione Claude Code sostituisce il server locale con lo stesso nome'
+    $claudeServer = $claudeArgv[1][-1] | ConvertFrom-Json
+    Assert ((($claudeArgv[1][0..4]) -join ' ') -eq 'mcp add-json --scope local rea-native' -and $claudeServer.command -eq (Get-Command node.exe).Source -and ($claudeServer.args -join '|') -eq 'C:\REA with spaces\scripts\rea.mjs|mcp' -and $claudeServer.env.HOPPER_LOADER_ARGS_JSON -eq '["a", "b"]') 'registrazione Claude Code passa launch e variabili del profilo come JSON'
+    Invoke-ProfileSetup -Action Client -Profile native -Client claude_code -Yes
+    Assert (@(Get-Content -LiteralPath $script:ClaudeCalls).Count -eq 4) 'Client claude_code riusa la registrazione diretta del profilo'
     Invoke-ProfileSetup -Action Client -Profile base -Client cursor
     Assert (($script:Calls[-1].Arguments -join ' ') -match 'setup --client cursor$') 'setup ufficiale accetta client selezionato'
     $bad = [pscustomobject]@{ schemaVersion = 1; reaVersion = 'latest;bad'; environment = [pscustomobject]@{} }

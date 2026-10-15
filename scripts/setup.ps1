@@ -24,7 +24,7 @@ function Invoke-ProfileSetup {
         Write-Host '3. Configura una variabile del profilo'
         Write-Host '4. Controlla provider o capacita del profilo'
         Write-Host '5. Esporta configurazione MCP JSON e TOML'
-        Write-Host '6. Registra il profilo in Codex con codex mcp add'
+        Write-Host '6. Registra il profilo in Codex o Claude Code'
         Write-Host '7. Setup ufficiale REA per client e istruzioni agente'
         Write-Host '8. Installa Ghidra e JDK oppure collega quelli esistenti'
         Write-Host '9. Altri strumenti esterni e guide'
@@ -37,7 +37,7 @@ function Invoke-ProfileSetup {
             '3' { $Action = 'Set'; $Profile = Read-Host 'Nome profilo'; $Key = Read-Host 'Nome variabile'; $Value = Read-Host 'Valore' }
             '4' { $Action = 'Doctor'; $Profile = Read-Host 'Nome profilo' }
             '5' { $Action = 'Mcp'; $Profile = Read-Host 'Nome profilo' }
-            '6' { $Action = 'Register'; $Profile = Read-Host 'Nome profilo' }
+            '6' { $Action = 'Register'; $Profile = Read-Host 'Nome profilo'; $Client = Read-Host 'Client (codex, claude) [codex]'; if (-not $Client) { $Client = 'codex' } }
             '7' { $Action = 'Client'; $Profile = Read-Host 'Nome profilo'; $Client = Read-Host 'Client REA (codex, cursor, claude_code, ...)' }
             '8' { Invoke-RepositorySetup; return }
             '9' { Get-ChildItem -LiteralPath $script:RepositoryRoot -Filter 'install-*.bat' | ForEach-Object { Write-Host $_.Name }; Write-Host 'Leggi docs/setup-external-tools.md e docs/rea-capabilities.md prima di installare.'; return }
@@ -92,20 +92,27 @@ function Invoke-ProfileSetup {
     }
     if ($Action -eq 'Mcp') { Install-ReaRuntime $selected.reaVersion | Out-Null; Export-ReaMcp $Profile $selected; return }
     if ($Action -eq 'Register') {
-        if ($Client -ne 'codex') { throw 'Register usa codex mcp add. Per altri client usa Mcp ed importa lo snapshot JSON.' }
+        if ($Client -notin @('codex', 'claude')) { throw 'Register supporta codex e claude. Per altri client usa Mcp ed importa lo snapshot JSON.' }
         $serverName = 'rea-' + $Profile
-        Write-Host "Registrazione utente Codex $serverName, versione REA $($selected.reaVersion)."
+        if ($Client -eq 'claude') { Write-Host "Registrazione Claude Code $serverName in scope local per questo repository, versione REA $($selected.reaVersion)." }
+        else { Write-Host "Registrazione utente Codex $serverName, versione REA $($selected.reaVersion)." }
         Write-Host "Variabili: $($selected.environment.PSObject.Properties.Name -join ', ')"
         Write-Host 'Un server con lo stesso nome verra aggiornato. Le altre registrazioni restano separate.'
         if (-not $Yes -and (Read-Host 'Procedere? [s/N]') -notmatch '^(s|si|y|yes)$') { Write-Host 'Registrazione annullata.'; return }
         Install-ReaRuntime $selected.reaVersion | Out-Null
-        Register-ReaMcp $Profile $selected
-        Write-Host "Riavvia Codex. Usa codex mcp get $serverName per verificare lo snapshot registrato."
+        if ($Client -eq 'claude') {
+            Register-ReaClaudeMcp $Profile $selected
+            Write-Host "Riavvia Claude Code o usa /mcp. Usa claude mcp get $serverName per verificare la registrazione."
+        } else {
+            Register-ReaMcp $Profile $selected
+            Write-Host "Riavvia Codex. Usa codex mcp get $serverName per verificare lo snapshot registrato."
+        }
         return
     }
     if ($Action -eq 'Client') {
         if ($Client -notmatch '^[a-z][a-z0-9_]*$') { throw 'Identificatore client non valido.' }
         if ($Client -eq 'codex') { Invoke-ProfileSetup -Action Register -Profile $Profile -Client codex -Yes:$Yes; return }
+        if ($Client -eq 'claude_code') { Invoke-ProfileSetup -Action Register -Profile $Profile -Client claude -Yes:$Yes; return }
         Write-Host 'Il setup ufficiale mostra e richiede approvazione del piano. Non collega automaticamente tutte le variabili del profilo.'
         Install-ReaRuntime $selected.reaVersion | Out-Null
         Invoke-InReaProfile $selected {

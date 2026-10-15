@@ -37,6 +37,13 @@ codex mcp get rea-ghidra
 node scripts/test-mcp.mjs --snapshot .rea/mcp/ghidra.json
 ```
 
+Per Claude Code registra lo stesso profilo in scope local per questo repository, poi riavvia Claude Code o usa `/mcp`.
+
+```powershell
+.\setup.bat -Action Register -Profile ghidra -Client claude
+claude mcp get rea-ghidra
+```
+
 Un controllo dei file di configurazione non prova che il server sia collegato alla sessione corrente. Verifica anche che la nuova sessione esponga gli strumenti REA.
 
 Per controllare il provider, usa il profilo locale.

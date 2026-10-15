@@ -114,7 +114,15 @@ Per registrare un profilo in Codex tramite la sua CLI usa l'azione dedicata e co
 
 La registrazione usa il binario `codex.exe` oppure l'installazione npm standard di `@openai/codex`. I percorsi con spazi, le variabili JSON e i caratteri speciali passano come argomenti del processo, senza interpretazione da parte di CMD. Se il launcher Codex non viene riconosciuto, importa lo snapshot TOML. Per controllare una registrazione esistente usa `codex mcp get rea-android`. Per rimuoverla usa `codex mcp remove rea-android`. La rimozione non cancella il profilo locale o i programmi esterni.
 
-Con `-Yes` puoi autorizzare esplicitamente la registrazione senza il prompt, per esempio `setup.bat -Action Register -Profile android -Yes`. Per gli altri client usa gli snapshot se vuoi mantenere il runtime locale. `Client` per client diversi da Codex conserva il setup upstream e la sua registrazione separata.
+Per Claude Code aggiungi `-Client claude`.
+
+```powershell
+.\setup.bat -Action Register -Profile android -Client claude
+```
+
+La registrazione usa `claude.exe` oppure l'installazione npm standard di `@anthropic-ai/claude-code` ed esegue `claude mcp add-json --scope local`. La voce resta nella configurazione privata di Claude Code per questo repository e non finisce in un `.mcp.json` versionato, perché contiene percorsi assoluti locali. Un server `rea-<nome>` già presente in scope local viene sostituito. Per controllarla usa `claude mcp get rea-android`, per rimuoverla `claude mcp remove rea-android -s local`. Riavvia Claude Code o riconnetti il server con `/mcp`.
+
+Con `-Yes` puoi autorizzare esplicitamente la registrazione senza il prompt, per esempio `setup.bat -Action Register -Profile android -Yes`. Per gli altri client usa gli snapshot se vuoi mantenere il runtime locale. `Client` con `codex` o `claude_code` riusa la registrazione diretta del profilo. Per gli altri client conserva il setup upstream e la sua registrazione separata.
 
 Per preparare o riparare soltanto il runtime usa `setup.bat -Action Runtime`. Il setup verifica la copia esistente prima di riutilizzarla. Se deve sostituirla, conserva quella precedente in una directory `.broken-<identificatore>` e pubblica la nuova soltanto dopo i controlli. Non cancella la cache npm globale.
 
@@ -126,7 +134,7 @@ Per la diagnosi del profilo usa il BAT.
 .\setup.bat -Action Doctor -Profile android
 ```
 
-L'azione `Doctor` esegue `doctor --provider` per Ghidra, IDA, Hopper e JADX. Per i modelli senza provider esegue `capabilities --json` e mostra motivazioni e limiti delle operazioni. `doctor --client codex` controlla la registrazione standard `rea`, non i server `rea-<nome>`. Per questi usa `codex mcp get rea-<nome>` e controlla gli strumenti nella sessione riconnessa.
+L'azione `Doctor` esegue `doctor --provider` per Ghidra, IDA, Hopper e JADX. Per i modelli senza provider esegue `capabilities --json` e mostra motivazioni e limiti delle operazioni. `doctor --client codex` controlla la registrazione standard `rea`, non i server `rea-<nome>`. Per questi usa `codex mcp get rea-<nome>` oppure `claude mcp get rea-<nome>` e controlla gli strumenti nella sessione riconnessa.
 
 Per argomenti multipli usa PowerShell, che mantiene l'array degli argomenti.
 

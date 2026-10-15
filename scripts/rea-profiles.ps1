@@ -79,6 +79,19 @@ function Register-ReaMcp([string]$Name, $Profile) {
     if ($registrationExit -ne 0) { throw "Registrazione Codex fallita: $registrationExit" }
 }
 
+function Register-ReaClaudeMcp([string]$Name, $Profile) {
+    $claude = Get-ClaudeRegistrationCommand
+    $launch = Get-ReaLaunchCommand $Profile.reaVersion
+    $environment = [ordered]@{}
+    foreach ($property in $Profile.environment.PSObject.Properties) { $environment[$property.Name] = $property.Value }
+    $server = [ordered]@{ type = 'stdio'; command = $launch.Executable; args = @($launch.Prefix) + @('mcp'); env = $environment }
+    $serverName = 'rea-' + $Name
+    Invoke-NativeArguments $claude.Executable (@($claude.Prefix) + @('mcp', 'remove', $serverName, '--scope', 'local')) | Out-Null
+    $json = ConvertTo-Json -InputObject $server -Depth 10 -Compress
+    $registrationExit = Invoke-NativeArguments $claude.Executable (@($claude.Prefix) + @('mcp', 'add-json', '--scope', 'local', $serverName, $json))
+    if ($registrationExit -ne 0) { throw "Registrazione Claude Code fallita: $registrationExit" }
+}
+
 function ConvertTo-WindowsArgument([string]$Argument) {
     $escaped = [regex]::Replace($Argument, '(\\*)"', '$1$1\"')
     $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
@@ -106,4 +119,16 @@ function Get-CodexRegistrationCommand {
         if (Test-Path -LiteralPath $entry -PathType Leaf) { return [pscustomobject]@{ Executable = $node.Source; Prefix = @($entry) } }
     }
     throw 'Codex CLI nativo o npm standard assente. Usa Mcp e importa lo snapshot TOML nel client.'
+}
+
+function Get-ClaudeRegistrationCommand {
+    $claude = Get-Command claude.exe -ErrorAction SilentlyContinue
+    if ($claude) { return [pscustomobject]@{ Executable = $claude.Source; Prefix = @() } }
+    $shim = Get-Command claude.cmd -ErrorAction SilentlyContinue
+    $node = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($shim -and $node) {
+        $entry = Join-Path (Split-Path $shim.Source -Parent) 'node_modules/@anthropic-ai/claude-code/cli.js'
+        if (Test-Path -LiteralPath $entry -PathType Leaf) { return [pscustomobject]@{ Executable = $node.Source; Prefix = @($entry) } }
+    }
+    throw 'Claude Code CLI nativo o npm standard assente. Usa Mcp e importa lo snapshot JSON nel client.'
 }

@@ -4,7 +4,7 @@
 
 Per scegliere il tipo di analisi, consulta [il catalogo REA](rea-capabilities.md). Avvia `setup.bat` per creare un profilo. Per installare Ghidra facoltativamente o collegarne una copia esistente, avvia `install-ghidra.bat` e segui [la guida Ghidra](setup-ghidra.md).
 
-1. Controlla la registrazione Codex con `codex mcp get rea-ghidra` e l'handshake con `node scripts/test-mcp.mjs --snapshot .rea/mcp/ghidra.json`. Verifica anche che gli strumenti REA siano presenti nella sessione dell'agente.
+1. Controlla la registrazione con `codex mcp get rea-ghidra` oppure, in Claude Code, `claude mcp get rea-ghidra`, e l'handshake con `node scripts/test-mcp.mjs --snapshot .rea/mcp/ghidra.json`. Verifica anche che gli strumenti REA siano presenti nella sessione dell'agente.
 2. Verifica il provider scelto con `setup.bat -Action Doctor -Profile ghidra` oppure con il nome del tuo profilo IDA. Usa i percorsi indicati nella [guida al setup](setup-ghidra.md#approva-il-collegamento-mcp).
 3. Se il provider non è pronto, correggi la sua configurazione seguendo la guida ufficiale REA per [Ghidra](https://github.com/morluto/rea/blob/main/docs/installation.md) o [IDA](https://github.com/morluto/rea/blob/main/docs/ida-provider.md), poi ripeti il controllo.
 4. Copia il campione in `analysis/samples/` (la cartella è ignorata da Git) e annota provenienza, hash e autorizzazione all’analisi.
