@@ -12,6 +12,12 @@ Installa i programmi per il workflow scelto nella [matrice delle funzionalità](
 
 Le installazioni portatili gestite dal repository restano in `.tools/`, ignorata da Git. Non inserire nel repository licenze, token, software commerciali o campioni.
 
+## Usare programmi gia presenti sul PC
+
+Per collegare software esistente usa `setup.bat` e scegli **Collega software gia installato**. Scegli il profilo, lo strumento e il percorso effettivo. Non serve reinstallare il programma o spostarlo in `.tools/`. Il setup salva il percorso nel profilo e lo include nella successiva esportazione MCP. Segui gli [esempi di collegamento](setup-profiles.md#collegare-programmi-gia-installati) per Ghidra, Java, browser e altri strumenti.
+
+I controlli delle ricevute degli installer si applicano soltanto al riutilizzo dei download gestiti dal repository. Il collegamento di installazioni esterne verifica i file richiesti senza richiedere queste ricevute. La compatibilita del motore resta da verificare con REA.
+
 ## Scegliere il BAT
 
 I BAT `install-*`, eccetto Ghidra, richiamano `scripts/install-tools.ps1`. Per questi BAT l'opzione `-Mode Instructions` mostra le istruzioni senza eseguire l'installazione. Il modo predefinito `Install` mostra la proposta e richiede la scelta prevista dallo script. Ghidra usa `scripts/setup-ghidra.ps1` con i modi `Prompt`, `Rea`, `Install` ed `Existing`.

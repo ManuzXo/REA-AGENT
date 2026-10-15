@@ -7,7 +7,7 @@ Un profilo raccoglie la versione REA e le variabili per un utilizzo. I file rest
 1. Installa Node.js 24.15 o successivo della linea 24, oppure Node.js 26+. Queste versioni coprono anche SQLite. Il minimo generale REA è Node.js 22.19.
 2. Scegli i file o l'applicazione che sei autorizzato ad analizzare.
 3. Scegli un modello nella tabella sotto.
-4. Installa solo i programmi richiesti da quel workflow.
+4. Usa i programmi compatibili gia presenti sul PC oppure installa quelli mancanti per quel workflow.
 
 | Modello | Utilizzo |
 | --- | --- |
@@ -49,6 +49,50 @@ Il file ha questa forma. I percorsi Windows nel JSON usano barre doppie.
   }
 }
 ```
+
+## Collegare programmi gia installati
+
+Avvia `setup.bat` e scegli **Collega software gia installato**, poi indica il profilo, lo strumento e il percorso. Puoi usare directory esterne al repository, installazioni portatili o programmi installati dal produttore. Non occorre copiarli in `.tools/`.
+
+Per Ghidra e Java usa le directory radice delle installazioni.
+
+```powershell
+.\setup.bat -Action Create -Profile ghidra-pc -Template native-ghidra
+.\setup.bat -Action Link -Profile ghidra-pc -Tool Ghidra -Path 'C:\Program Files\Ghidra\ghidra_12.1.4_PUBLIC'
+.\setup.bat -Action Link -Profile ghidra-pc -Tool Java -Path 'C:\Program Files\Eclipse Adoptium\jdk-21'
+.\setup.bat -Action Doctor -Profile ghidra-pc
+.\setup.bat -Action Mcp -Profile ghidra-pc
+```
+
+Sostituisci i percorsi di esempio con quelli presenti sul PC. Ometti `-Path` per inserirlo al prompt. Per cambiare installazione ripeti `Link` sullo stesso profilo. Gli altri profili conservano i propri percorsi.
+
+`Link` controlla il percorso e i file richiesti, poi salva il percorso assoluto nel profilo. Non richiede ricevute dell'installer del repository. Non scarica programmi e non avvia il software selezionato. La verifica dei file non dimostra la disponibilita del provider. Esegui anche `Doctor` e verifica gli strumenti nella sessione MCP riconnessa.
+
+Per gli altri strumenti seleziona il componente richiesto da REA.
+
+| Strumento | Percorso da indicare |
+| --- | --- |
+| `Jadx` | JAR headless MCP compatibile, non il launcher della GUI JADX. |
+| `Wabt` | Directory `bin` contenente `wasm2wat.exe`, `wasm-objdump.exe` e `wasm-validate.exe`. |
+| `Apktool` | Launcher del comando, per esempio `apktool.cmd`, non il solo JAR. |
+| `Adb` | File `adb.exe`. |
+| `Browser` | Eseguibile Chrome o Edge. |
+| `Rizin` | Eseguibile Rizin. |
+| `Ilspy` | Eseguibile `ilspycmd`. |
+| `Ida` | File JSON di registrazione MCP upstream, non `ida.exe`. |
+| `Cutter` | Directory del bridge REA Cutter, non la directory dell'applicazione. |
+
+Per esempio, collega una copia di Platform-Tools e il browser gia presenti sul PC.
+
+```powershell
+.\setup.bat -Action Link -Profile android -Tool Adb -Path 'D:\Android SDK\platform-tools\adb.exe'
+.\setup.bat -Action Create -Profile web -Template browser
+.\setup.bat -Action Link -Profile web -Tool Browser -Path 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+```
+
+Node.js e npm gia disponibili nel `PATH` possono essere usati direttamente. La dipendenza Frida e costituita dai binding Node caricati da REA. Per JEB configura l'endpoint del server MCP gia avviato con `Set`, per esempio `-Key REA_JEB_MCP_URL -Value 'http://127.0.0.1:8425/mcp'`. Gli strumenti riservati a Linux o macOS vanno configurati sull'host supportato con i percorsi di quell'host. Consulta la [guida agli strumenti](setup-external-tools.md).
+
+Dopo `Link`, rigenera lo snapshot con `Mcp` oppure aggiorna la registrazione con `Register`, poi riconnetti il client. Una registrazione gia importata conserva i percorsi precedenti finche non la aggiorni.
 
 ## Collegare il profilo al client MCP
 

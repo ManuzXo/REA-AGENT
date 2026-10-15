@@ -1,18 +1,21 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'List', 'Create', 'Set', 'RemoveVariable', 'Doctor', 'Mcp', 'Register', 'Client')][string]$Action = 'Menu',
+    [ValidateSet('Menu', 'List', 'Create', 'Set', 'Link', 'RemoveVariable', 'Doctor', 'Mcp', 'Register', 'Client')][string]$Action = 'Menu',
     [string]$Profile = 'default',
     [string]$Template = 'builtin',
     [string]$Key,
     [string]$Value,
-    [string]$Client = 'codex'
+    [string]$Client = 'codex',
+    [string]$Tool,
+    [string]$Path
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'rea-profiles.ps1')
 . (Join-Path $PSScriptRoot 'setup-ghidra.ps1')
+. (Join-Path $PSScriptRoot 'existing-tools.ps1')
 
 function Invoke-ProfileSetup {
-    param([string]$Action = 'Menu', [string]$Profile = 'default', [string]$Template = 'builtin', [string]$Key, [string]$Value, [string]$Client = 'codex')
+    param([string]$Action = 'Menu', [string]$Profile = 'default', [string]$Template = 'builtin', [string]$Key, [string]$Value, [string]$Client = 'codex', [string]$Tool, [string]$Path)
     if ($Action -eq 'Menu') {
         Write-Host 'REA workspace. Profili e strumenti facoltativi.'
         Write-Host '1. Elenca modelli e profili'
@@ -24,6 +27,7 @@ function Invoke-ProfileSetup {
         Write-Host '7. Setup ufficiale REA per client e istruzioni agente'
         Write-Host '8. Installa Ghidra e JDK oppure collega quelli esistenti'
         Write-Host '9. Altri strumenti esterni e guide'
+        Write-Host '10. Collega software gia installato a un profilo'
         Write-Host '0. Esci'
         switch (Read-Host 'Scelta [0]') {
             '1' { $Action = 'List' }
@@ -35,6 +39,7 @@ function Invoke-ProfileSetup {
             '7' { $Action = 'Client'; $Profile = Read-Host 'Nome profilo'; $Client = Read-Host 'Client REA (codex, cursor, claude_code, ...)' }
             '8' { Invoke-RepositorySetup; return }
             '9' { Get-ChildItem -LiteralPath $script:RepositoryRoot -Filter 'install-*.bat' | ForEach-Object { Write-Host $_.Name }; Write-Host 'Leggi docs/setup-external-tools.md e docs/rea-capabilities.md prima di installare.'; return }
+            '10' { $Action = 'Link'; $Profile = Read-Host 'Nome profilo' }
             default { Write-Host 'Setup annullato.'; return }
         }
     }
@@ -57,6 +62,16 @@ function Invoke-ProfileSetup {
         return
     }
     $selected = Read-ReaProfile $Profile
+    if ($Action -eq 'Link') {
+        $link = Get-ExistingToolLink -Tool $Tool -Path $Path
+        Assert-ProfileVariable $link.Environment $link.Path
+        $selected.environment | Add-Member -MemberType NoteProperty -Name $link.Environment -Value $link.Path -Force
+        Save-ReaProfile $Profile $selected
+        Write-Host "Collegato $($link.Tool) al profilo $Profile tramite $($link.Environment)."
+        Write-Host 'Il percorso e stato verificato senza avviare lo strumento. Verifica poi il provider con Doctor o il comando REA dedicato.'
+        Write-Host 'Rigenera lo snapshot con Mcp e aggiorna la registrazione con Register se gia presente. Riavvia il client.'
+        return
+    }
     if ($Action -eq 'Set') {
         Assert-ProfileVariable $Key $Value
         $selected.environment | Add-Member -MemberType NoteProperty -Name $Key -Value $Value -Force

@@ -12,8 +12,8 @@ Ambiente personale per configurare e usare [REA](https://github.com/morluto/rea)
    ```
 
 3. Installa Node.js con npm. REA richiede Node 22.19+, 24.11+ oppure 26+. Per SQLite servono Node 24.15+ oppure 26+. `install-node.bat` propone l'installazione con WinGet, dopo conferma.
-4. Installa solo gli strumenti necessari tramite i BAT `install-*.bat`. Per Ghidra, usa `install-ghidra.bat`. Per il solo JDK, usa `install-java.bat`. Per i dettagli segui [la preparazione degli strumenti](docs/setup-external-tools.md) e [la guida Ghidra](docs/setup-ghidra.md).
-5. Imposta i percorsi nel profilo secondo [la guida ai profili](docs/setup-profiles.md). Usa `setup.bat -Action Doctor -Profile personale` per controllare il provider previsto dal modello oppure le capacita disponibili.
+4. Usa gli strumenti compatibili gia installati sul PC. Per quelli mancanti, scegli i BAT `install-*.bat`. Per Ghidra, usa `install-ghidra.bat`. Per il solo JDK, usa `install-java.bat`. Segui [la preparazione degli strumenti](docs/setup-external-tools.md) e [la guida Ghidra](docs/setup-ghidra.md).
+5. Collega i programmi al profilo dal menu di `setup.bat` oppure con `-Action Link -Profile personale -Tool Ghidra -Path 'C:\Tools\Ghidra'`. I percorsi possono essere esterni al repository. Segui [la guida ai profili](docs/setup-profiles.md) e usa `setup.bat -Action Doctor -Profile personale` per controllare il provider previsto dal modello oppure le capacita disponibili.
 6. Per MCP, usa `setup.bat -Action Mcp -Profile personale`. Controlla e importa lo snapshot JSON o TOML generato in `.rea/mcp/`. Con Codex CLI puoi registrarlo dopo conferma con `setup.bat -Action Register -Profile personale`.
 7. Riavvia il client. Controlla gli strumenti esposti nella nuova sessione. Segui [la guida d'uso](docs/usage.md) per iniziare un'analisi.
 

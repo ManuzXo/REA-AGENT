@@ -20,7 +20,9 @@ Il setup imposta `GHIDRA_INSTALL_DIR` e `JAVA_HOME` nel proprio processo e contr
 
 ## Usa un profilo locale
 
-Per piu configurazioni indipendenti, installa con `.\install-ghidra.bat -Mode Install -SkipMcp` oppure collega una copia esistente con `-Mode Existing -SkipMcp`. Crea poi un profilo `native-ghidra` con `setup.bat`, imposta `GHIDRA_INSTALL_DIR` e `JAVA_HOME` e segui [la guida ai profili](setup-profiles.md). L'installer Ghidra non crea automaticamente il profilo.
+Per piu configurazioni indipendenti, crea un profilo `native-ghidra` con `setup.bat`. Usa `-Action Link -Tool Ghidra` e `-Action Link -Tool Java` per scegliere installazioni gia presenti in qualunque directory accessibile del PC. Segui gli [esempi nella guida ai profili](setup-profiles.md#collegare-programmi-gia-installati), poi esegui `Doctor` e aggiorna MCP. Non occorre avviare l'installer per collegare questi percorsi.
+
+Se devi prima scaricare i programmi, usa `.\install-ghidra.bat -Mode Install -SkipMcp`, poi collega al profilo le directory ottenute. L'installer Ghidra non crea automaticamente il profilo.
 
 ## Approva il collegamento MCP
 
