@@ -1,0 +1,10 @@
+ts	phase	decision	why	evidence	result
+2026-10-15T12:25:00Z	provider	Verificato doctor fuori dalla sandbox	Separare i limiti della sandbox dai requisiti Ghidra	.tools/ghidra-doctor-unsandboxed.json	healthy true
+2026-10-15T12:27:00Z	design	Scelto runtime locale con Node diretto e lockfile	Evitare cache npx globale e download durante initialize	config/rea-runtime/package-lock.json; scripts/rea-runtime.ps1	implementato
+2026-10-15T12:30:00Z	bootstrap	Installato REA con npm ci e verificato prima della pubblicazione	Una dipendenza incompleta deve fallire prima della registrazione	scripts/rea-runtime.ps1; scripts/test-rea-runtime.ps1	initialize e tools/call passano
+2026-10-15T12:33:00Z	provider	Decompilata fixture PE x64 senza eseguirla	Verificare il provider reale oltre il catalogo MCP	.tools/ghidra-smoke/2026-10-15T12-30-05-782Z/summary.json	return 42 verificato
+2026-10-15T12:35:00Z	registration	Aggiornato rea-ghidra tramite codex mcp add	Usare lo stesso comando verificato nello snapshot	.rea/mcp/ghidra.json; C:/Users/e.rispoli/.codex/config.toml	comando Node diretto registrato
+2026-10-15T12:36:54Z	clone	Verificato bootstrap da copia senza runtime o cache	Provare il percorso di chi scarica il repository	.tools/verify-clean-clone.log	initialize e tools/call passano
+2026-10-15T12:36:54Z	review	Spostato salvataggio del profilo dopo doctor	Un setup fallito deve conservare il profilo funzionante	.tools/profile-preservation-red.log; scripts/test-setup-ghidra.ps1	test riproduce il difetto prima della correzione
+2026-10-15T12:40:40Z	verification	Ripetuto test del profilo dopo correzione su PowerShell 5.1 e 7	Verificare che doctor fallito conservi il profilo	.tools/profile-preservation-green.log; .tools/profile-preservation-green-ps7.log	test passano
+2026-10-15T12:40:40Z	delivery	Salvata correzione soltanto nel ramo locale	Revisione automatica blocca pubblicazione GitHub senza autorizzazione esplicita	analysis/reports/ghidra-mcp-fix-verification.md	pubblicazione in attesa di autorizzazione utente

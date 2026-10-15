@@ -1,13 +1,14 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'List', 'Create', 'Set', 'Link', 'RemoveVariable', 'Doctor', 'Mcp', 'Register', 'Client')][string]$Action = 'Menu',
+    [ValidateSet('Menu', 'List', 'Create', 'Set', 'Link', 'RemoveVariable', 'Doctor', 'Mcp', 'Register', 'Client', 'Runtime')][string]$Action = 'Menu',
     [string]$Profile = 'default',
     [string]$Template = 'builtin',
     [string]$Key,
     [string]$Value,
     [string]$Client = 'codex',
     [string]$Tool,
-    [string]$Path
+    [string]$Path,
+    [switch]$Yes
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'rea-profiles.ps1')
@@ -15,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'existing-tools.ps1')
 
 function Invoke-ProfileSetup {
-    param([string]$Action = 'Menu', [string]$Profile = 'default', [string]$Template = 'builtin', [string]$Key, [string]$Value, [string]$Client = 'codex', [string]$Tool, [string]$Path)
+    param([string]$Action = 'Menu', [string]$Profile = 'default', [string]$Template = 'builtin', [string]$Key, [string]$Value, [string]$Client = 'codex', [string]$Tool, [string]$Path, [switch]$Yes)
     if ($Action -eq 'Menu') {
         Write-Host 'REA workspace. Profili e strumenti facoltativi.'
         Write-Host '1. Elenca modelli e profili'
@@ -28,6 +29,7 @@ function Invoke-ProfileSetup {
         Write-Host '8. Installa Ghidra e JDK oppure collega quelli esistenti'
         Write-Host '9. Altri strumenti esterni e guide'
         Write-Host '10. Collega software gia installato a un profilo'
+        Write-Host '11. Prepara o ripara il runtime REA locale'
         Write-Host '0. Esci'
         switch (Read-Host 'Scelta [0]') {
             '1' { $Action = 'List' }
@@ -40,9 +42,11 @@ function Invoke-ProfileSetup {
             '8' { Invoke-RepositorySetup; return }
             '9' { Get-ChildItem -LiteralPath $script:RepositoryRoot -Filter 'install-*.bat' | ForEach-Object { Write-Host $_.Name }; Write-Host 'Leggi docs/setup-external-tools.md e docs/rea-capabilities.md prima di installare.'; return }
             '10' { $Action = 'Link'; $Profile = Read-Host 'Nome profilo' }
+            '11' { $Action = 'Runtime' }
             default { Write-Host 'Setup annullato.'; return }
         }
     }
+    if ($Action -eq 'Runtime') { Install-ReaRuntime $script:ReaConfig.reaVersion | Out-Null; return }
     if ($Action -eq 'List') {
         $script:ReaConfig.templates.PSObject.Properties | ForEach-Object { Write-Host "$($_.Name): $($_.Value.description)" }
         $folder = Join-Path $script:RepositoryRoot '.rea/profiles'
@@ -86,30 +90,26 @@ function Invoke-ProfileSetup {
         Write-Host "Variabile $Key rimossa. Aggiorna anche lo snapshot MCP."
         return
     }
-    if ($Action -eq 'Mcp') { Export-ReaMcp $Profile $selected; return }
+    if ($Action -eq 'Mcp') { Install-ReaRuntime $selected.reaVersion | Out-Null; Export-ReaMcp $Profile $selected; return }
     if ($Action -eq 'Register') {
         if ($Client -ne 'codex') { throw 'Register usa codex mcp add. Per altri client usa Mcp ed importa lo snapshot JSON.' }
-        $codex = Get-CodexRegistrationCommand
         $serverName = 'rea-' + $Profile
-        $arguments = @('mcp', 'add', $serverName)
-        foreach ($property in $selected.environment.PSObject.Properties) { $arguments += @('--env', ($property.Name + '=' + $property.Value)) }
-        $arguments += @('--', 'cmd.exe', '/d', '/c', 'npx.cmd', '--yes', "rea-agents@$($selected.reaVersion)", 'mcp')
         Write-Host "Registrazione utente Codex $serverName, versione REA $($selected.reaVersion)."
         Write-Host "Variabili: $($selected.environment.PSObject.Properties.Name -join ', ')"
         Write-Host 'Un server con lo stesso nome verra aggiornato. Le altre registrazioni restano separate.'
-        if ((Read-Host 'Procedere? [s/N]') -notmatch '^(s|si|y|yes)$') { Write-Host 'Registrazione annullata.'; return }
-        $registrationExit = Invoke-NativeArguments $codex.Executable (@($codex.Prefix) + $arguments)
-        if ($registrationExit -ne 0) { throw "Registrazione Codex fallita: $registrationExit" }
+        if (-not $Yes -and (Read-Host 'Procedere? [s/N]') -notmatch '^(s|si|y|yes)$') { Write-Host 'Registrazione annullata.'; return }
+        Install-ReaRuntime $selected.reaVersion | Out-Null
+        Register-ReaMcp $Profile $selected
         Write-Host "Riavvia Codex. Usa codex mcp get $serverName per verificare lo snapshot registrato."
         return
     }
-    $npx = Get-NpxCommand
     if ($Action -eq 'Client') {
         if ($Client -notmatch '^[a-z][a-z0-9_]*$') { throw 'Identificatore client non valido.' }
+        if ($Client -eq 'codex') { Invoke-ProfileSetup -Action Register -Profile $Profile -Client codex -Yes:$Yes; return }
         Write-Host 'Il setup ufficiale mostra e richiede approvazione del piano. Non collega automaticamente tutte le variabili del profilo.'
+        Install-ReaRuntime $selected.reaVersion | Out-Null
         Invoke-InReaProfile $selected {
-            & $npx --yes "rea-agents@$($selected.reaVersion)" setup --client $Client
-            if ($LASTEXITCODE -ne 0) { throw "Setup REA fallito: $LASTEXITCODE" }
+            Invoke-ReaCommand $selected.reaVersion @('setup', '--client', $Client)
         }
         return
     }
@@ -124,9 +124,9 @@ function Invoke-ProfileSetup {
     Write-Host 'La diagnosi usa doctor per il provider del modello oppure capabilities per i modelli senza motore.'
     Write-Host "Per la registrazione Codex del profilo usa codex mcp get rea-$Profile. REA doctor --client verifica solo la registrazione standard rea."
     Write-Host 'La diagnosi non prova ogni helper su un campione o la connessione MCP attiva.'
+    Install-ReaRuntime $selected.reaVersion | Out-Null
     Invoke-InReaProfile $selected {
-        & $npx --yes "rea-agents@$($selected.reaVersion)" @arguments
-        if ($LASTEXITCODE -ne 0) { throw "La diagnosi REA ha rilevato problemi: $LASTEXITCODE" }
+        Invoke-ReaCommand $selected.reaVersion $arguments
     }
 }
 

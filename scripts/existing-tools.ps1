@@ -11,7 +11,7 @@ function Get-ExistingToolCatalog {
         Wabt = @{ Environment='REA_WABT_BIN_DIRECTORY'; PathType='Container'; RequiredFiles=@('wasm2wat.exe','wasm-objdump.exe','wasm-validate.exe'); Hint='Cartella bin di WABT 1.0.42 contenente i tre eseguibili.' }
         Cutter = @{ Environment='REA_CUTTER_BRIDGE_DIR'; PathType='Container'; RequiredFiles=@(); Hint='Cartella sessioni del bridge Python Cutter v2. Deve esistere. Non e la cartella di Cutter.exe e non richiede sessioni attive al collegamento.' }
         Ida = @{ Environment='REA_IDA_MCP_CONFIG'; PathType='Leaf'; Extension='\.json$'; Hint='Registrazione MCP IDA JSON, diretta oppure mcpServers.ida-pro-mcp. Non scegliere ida.exe.' }
-        Node = @{ Hint='REA usa Node e npx dal PATH del client MCP. Riutilizza l installazione esistente nel PATH e riavvia il client. Nessuna variabile REA di percorso dedicata.' }
+        Node = @{ Hint='Il setup risolve Node dal PATH e salva il percorso assoluto nel comando MCP. Dopo un cambio di installazione Node rigenera MCP e riavvia il client. Nessuna variabile REA di percorso dedicata.' }
         Python = @{ Hint='Python generico si seleziona nel PATH o nell ambiente virtuale dello strumento. REA non definisce una variabile di percorso Python globale.' }
         Frida = @{ Hint='REA carica i binding Node Frida opzionali dal pacchetto npm. Una CLI frida-tools esistente non sostituisce questi binding. Nessuna variabile REA di percorso dedicata.' }
         Kuna = @{ Hint='Kuna non e disponibile nella versione REA 6.5.0 fissata dal repository. Non viene creata una variabile per un provider assente.' }

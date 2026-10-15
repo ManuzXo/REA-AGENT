@@ -5,6 +5,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argumentsList = process.argv.slice(2);
 const failures = [];
+const configuration = JSON.parse(readFileSync(join(repository, 'config/rea.json'), 'utf8'));
+const runtimeManifest = JSON.parse(readFileSync(join(repository, 'config/rea-runtime/package.json'), 'utf8'));
+const runtimeLock = JSON.parse(readFileSync(join(repository, 'config/rea-runtime/package-lock.json'), 'utf8'));
+if (runtimeManifest.dependencies['rea-agents'] !== configuration.reaVersion || runtimeLock.packages[''].dependencies['rea-agents'] !== configuration.reaVersion || runtimeLock.packages['node_modules/rea-agents'].version !== configuration.reaVersion) {
+  failures.push('Versione REA incoerente tra config/rea.json, manifest e lockfile runtime.');
+}
 let packagePath;
 for (let index = 0; index < argumentsList.length; index += 1) {
   if (argumentsList[index] !== '--package' || !argumentsList[index + 1] || packagePath) {

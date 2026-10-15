@@ -1,5 +1,6 @@
 $script:RepositoryRoot = Split-Path $PSScriptRoot -Parent
 $script:ReaConfig = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot 'config/rea.json') -Raw | ConvertFrom-Json
+. (Join-Path $PSScriptRoot 'rea-runtime.ps1')
 
 function Get-ProfilePath([string]$Name) {
     if ($Name -notmatch '^[a-z][a-z0-9-]{0,47}$') { throw 'Nome profilo non valido. Usa lettere minuscole, numeri e trattini, iniziando con una lettera.' }
@@ -49,14 +50,15 @@ function Export-ReaMcp([string]$Name, $Profile) {
     $serverName = 'rea-' + $Name
     $environment = [ordered]@{}
     foreach ($property in $Profile.environment.PSObject.Properties) { $environment[$property.Name] = $property.Value }
-    $server = [ordered]@{ command = 'cmd.exe'; args = @('/d', '/c', 'npx.cmd', '--yes', "rea-agents@$($Profile.reaVersion)", 'mcp'); env = $environment }
+    $launch = Get-ReaLaunchCommand $Profile.reaVersion
+    $server = [ordered]@{ command = $launch.Executable; args = @($launch.Prefix) + @('mcp'); env = $environment }
     $servers = [ordered]@{}
     $servers[$serverName] = $server
     $directory = Join-Path $script:RepositoryRoot '.rea/mcp'
     New-Item -ItemType Directory -Path $directory -Force | Out-Null
     $jsonPath = Join-Path $directory "$Name.json"
     [IO.File]::WriteAllText($jsonPath, (@{ mcpServers = $servers } | ConvertTo-Json -Depth 10), (New-Object Text.UTF8Encoding($false)))
-    $lines = @("[mcp_servers.$serverName]", 'command = "cmd.exe"', ('args = ' + (ConvertTo-Json -InputObject $server.args -Compress)))
+    $lines = @("[mcp_servers.$serverName]", ('command = ' + (ConvertTo-Json -InputObject $server.command -Compress)), ('args = ' + (ConvertTo-Json -InputObject $server.args -Compress)))
     if ($environment.Count -gt 0) {
         $lines += "[mcp_servers.$serverName.env]"
         foreach ($key in $environment.Keys) { $lines += $key + ' = ' + (ConvertTo-Json -InputObject $environment[$key] -Compress) }
@@ -65,6 +67,16 @@ function Export-ReaMcp([string]$Name, $Profile) {
     [IO.File]::WriteAllText($tomlPath, ($lines -join [Environment]::NewLine), (New-Object Text.UTF8Encoding($false)))
     Write-Host "Snapshot MCP creati: $jsonPath e $tomlPath"
     Write-Host 'Controllali prima di importarli. Dopo ogni modifica al profilo, rigenera e aggiorna la registrazione. Riavvia il client.'
+}
+
+function Register-ReaMcp([string]$Name, $Profile) {
+    $codex = Get-CodexRegistrationCommand
+    $launch = Get-ReaLaunchCommand $Profile.reaVersion
+    $arguments = @('mcp', 'add', ('rea-' + $Name))
+    foreach ($property in $Profile.environment.PSObject.Properties) { $arguments += @('--env', ($property.Name + '=' + $property.Value)) }
+    $arguments += @('--', $launch.Executable) + @($launch.Prefix) + @('mcp')
+    $registrationExit = Invoke-NativeArguments $codex.Executable (@($codex.Prefix) + $arguments)
+    if ($registrationExit -ne 0) { throw "Registrazione Codex fallita: $registrationExit" }
 }
 
 function ConvertTo-WindowsArgument([string]$Argument) {

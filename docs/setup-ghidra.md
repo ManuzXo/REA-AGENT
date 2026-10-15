@@ -16,34 +16,34 @@ Puoi annullare dal menu. Clonare o aprire il repository non avvia alcuna install
 
 Lo script scarica gli archivi ufficiali di Ghidra 12.1.4 e Temurin JDK 21.0.12.1+1. Verifica i rispettivi SHA-256 prima di estrarli. Le directory di destinazione sono sotto `.tools/`, esclusa da Git. L'installazione non richiede privilegi amministrativi e non modifica il `PATH` globale.
 
-Il setup imposta `GHIDRA_INSTALL_DIR` e `JAVA_HOME` nel proprio processo e controlla il provider con REA 6.5.0. Se il controllo fallisce, correggi il problema indicato prima di registrare MCP.
+Il setup prepara REA 6.5.0 tramite il lockfile in `config/rea-runtime/`, controlla il provider e salva il profilo locale `ghidra` con i percorsi verificati. Se la preparazione o il controllo falliscono, il profilo precedente resta invariato e MCP non viene registrato.
 
 ## Usa un profilo locale
 
 Per piu configurazioni indipendenti, crea un profilo `native-ghidra` con `setup.bat`. Usa `-Action Link -Tool Ghidra` e `-Action Link -Tool Java` per scegliere installazioni gia presenti in qualunque directory accessibile del PC. Segui gli [esempi nella guida ai profili](setup-profiles.md#collegare-programmi-gia-installati), poi esegui `Doctor` e aggiorna MCP. Non occorre avviare l'installer per collegare questi percorsi.
 
-Se devi prima scaricare i programmi, usa `.\install-ghidra.bat -Mode Install -SkipMcp`, poi collega al profilo le directory ottenute. L'installer Ghidra non crea automaticamente il profilo.
+Se devi prima scaricare i programmi, usa `.\install-ghidra.bat -Mode Install -SkipMcp`. Anche con `-SkipMcp` l'installer crea o aggiorna il profilo `ghidra` e controlla il provider. Per altri nomi di profilo, crea un profilo `native-ghidra` e collega le directory ottenute.
 
 ## Approva il collegamento MCP
 
-Dopo il controllo del provider, REA mostra il piano per Codex. Controlla che includa i percorsi Ghidra e JDK selezionati, poi approva.
+Dopo la conferma del piano iniziale, il setup prepara il runtime, verifica Ghidra, esporta `.rea/mcp/ghidra.json` e `.rea/mcp/ghidra.toml`, poi registra `rea-ghidra` in Codex. Con `-SkipMcp` omette esportazione e registrazione. Per altri client, genera lo snapshot con `setup.bat -Action Mcp -Profile ghidra` e importa il JSON.
 
-REA registra il proprio server MCP nel profilo utente Codex e salva i percorsi verificati nell'ambiente del server. Il piano di REA gestisce la conferma e la conservazione delle altre voci di configurazione. Non serve installare un secondo server MCP o un'estensione Ghidra. Il bridge Java è incluso in REA.
+La registrazione usa i percorsi assoluti di Node e `.tools/rea-runtime/6.5.0/node_modules/rea-agents/scripts/rea.mjs`. Le variabili Ghidra e Java sono salvate nell'ambiente del server. Non usa `npx`, la cache npm globale o download durante l'handshake. Il bridge Java e incluso in REA.
 
 Riavvia Codex dopo aver approvato. Apri una nuova sessione e controlla la registrazione.
 
 ```powershell
-npx.cmd --yes rea-agents@6.5.0 doctor --client codex --json
+codex mcp get rea-ghidra
+node scripts/test-mcp.mjs --snapshot .rea/mcp/ghidra.json
 ```
 
 Un controllo dei file di configurazione non prova che il server sia collegato alla sessione corrente. Verifica anche che la nuova sessione esponga gli strumenti REA.
 
-Per controllare il provider da un terminale separato, imposta i percorsi effettivi prima di eseguire `doctor`.
+Per controllare il provider, usa il profilo locale.
 
 ```powershell
-$env:GHIDRA_INSTALL_DIR = 'C:\percorso\ghidra_12.1.4_PUBLIC'
-$env:JAVA_HOME = 'C:\percorso\jdk-21.0.12.1+1'
-npx.cmd --yes rea-agents@6.5.0 doctor --provider ghidra --json
+setup.bat -Action Doctor -Profile ghidra
+node scripts/test-ghidra.mjs .rea/mcp/ghidra.json
 ```
 
 ## Usa installazioni esistenti
@@ -68,7 +68,9 @@ Se una directory di destinazione esiste ma è incompleta, controllane il contenu
 
 Se REA segnala un problema del runtime nativo Windows, controlla i dettagli di `doctor`. Reinstallare Ghidra non risolve necessariamente problemi di filesystem, permessi o controlli nativi di REA.
 
-Se REA fallisce all'avvio per una dipendenza npm incompleta, prova una cache separata prima di ripetere il setup. Per esempio, imposta `$env:npm_config_cache = Join-Path $PWD '.tools\npm-cache'` nel terminale che avvia `install-ghidra.bat`. La variabile vale per quel processo e i suoi figli.
+Se REA fallisce all'avvio per una dipendenza incompleta, esegui `setup.bat -Action Runtime`. Il bootstrap verifica il runtime e lo ripara con un'installazione da lockfile prima di sostituirlo. La copia precedente resta in `.tools/rea-runtime/6.5.0.broken-<identificatore>`. Poi rigenera MCP con `setup.bat -Action Mcp -Profile ghidra`, aggiorna la registrazione con `setup.bat -Action Register -Profile ghidra` e riconnetti il client.
+
+Se `doctor` restituisce Win32 5 in una sandbox dell'agente, ripeti lo stesso comando da un terminale Windows normale. I controlli nativi verificano handle, DACL e Job Object e possono essere impediti dalla sandbox. Non disabilitarli e non considerare sufficiente il solo catalogo MCP.
 
 I percorsi salvati nella registrazione MCP sono assoluti. Dopo aver spostato il repository o le installazioni, riesegui il setup per aggiornare la registrazione.
 
@@ -80,7 +82,7 @@ Esegui le verifiche senza scaricare Ghidra o modificare il profilo Codex.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-setup.ps1
 ```
 
-I test usano archivi di prova e comandi esterni simulati. Per verificare una vera installazione, esegui il setup e i controlli `doctor` descritti sopra.
+I test degli installer usano archivi di prova e comandi esterni simulati. Il bootstrap verifica un handshake MCP reale. `test-ghidra.mjs` genera un PE x64 con la funzione `mov eax,42; ret`, lo apre con il provider `ghidra` e verifica il risultato decompilato. Non esegue il campione. Salva input, SHA-256 e risposte MCP in `.tools/ghidra-smoke/`.
 
 ## Consulta requisiti e limiti
 

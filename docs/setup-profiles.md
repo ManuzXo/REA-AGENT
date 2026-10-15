@@ -102,7 +102,7 @@ Genera la configurazione del profilo.
 .\setup.bat -Action Mcp -Profile android
 ```
 
-Il comando crea `.rea/mcp/android.json` e `.rea/mcp/android.toml`. Copia la registrazione nel client che vuoi usare, seguendo il formato del client. Il JSON usa `mcpServers`, mentre il TOML usa il formato Codex. Il comando non modifica automaticamente i profili personali. Lo snapshot avvia direttamente `npx.cmd` tramite `cmd.exe` e contiene tutte le variabili del profilo.
+Il comando prepara e verifica REA nella directory locale `.tools/rea-runtime/<versione>`, poi crea `.rea/mcp/android.json` e `.rea/mcp/android.toml`. La prima preparazione richiede rete e npm. Copia la registrazione nel client che vuoi usare. Il JSON usa `mcpServers`, mentre il TOML usa il formato Codex. Lo snapshot avvia Node direttamente con il percorso assoluto del runtime verificato e contiene tutte le variabili del profilo. L'avvio MCP non scarica dipendenze.
 
 Dopo ogni modifica al profilo rigenera lo snapshot e aggiorna la registrazione importata. Riavvia o riconnetti il client. Una modifica al JSON del profilo non cambia uno snapshot già copiato nel client.
 
@@ -114,7 +114,9 @@ Per registrare un profilo in Codex tramite la sua CLI usa l'azione dedicata e co
 
 La registrazione usa il binario `codex.exe` oppure l'installazione npm standard di `@openai/codex`. I percorsi con spazi, le variabili JSON e i caratteri speciali passano come argomenti del processo, senza interpretazione da parte di CMD. Se il launcher Codex non viene riconosciuto, importa lo snapshot TOML. Per controllare una registrazione esistente usa `codex mcp get rea-android`. Per rimuoverla usa `codex mcp remove rea-android`. La rimozione non cancella il profilo locale o i programmi esterni.
 
-Per il setup gestito direttamente da REA usa `scripts/setup-rea.ps1`. REA mostra il piano e chiede l'approvazione prima di modificare la configurazione personale. Questa registrazione standard e i launcher con profilo sono due modalità di collegamento. Scegli quella che corrisponde al tuo utilizzo ed evita registrazioni duplicate con lo stesso scopo.
+Con `-Yes` puoi autorizzare esplicitamente la registrazione senza il prompt, per esempio `setup.bat -Action Register -Profile android -Yes`. Per gli altri client usa gli snapshot se vuoi mantenere il runtime locale. `Client` per client diversi da Codex conserva il setup upstream e la sua registrazione separata.
+
+Per preparare o riparare soltanto il runtime usa `setup.bat -Action Runtime`. Il setup verifica la copia esistente prima di riutilizzarla. Se deve sostituirla, conserva quella precedente in una directory `.broken-<identificatore>` e pubblica la nuova soltanto dopo i controlli. Non cancella la cache npm globale.
 
 ## Usare la CLI con il profilo
 

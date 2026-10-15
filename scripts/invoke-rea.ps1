@@ -10,9 +10,8 @@ $ErrorActionPreference = 'Stop'
 try {
     if ($Command -eq 'mcp') { throw 'Per MCP usa lo snapshot diretto generato da setup.bat -Action Mcp. Il launcher PowerShell e riservato alla CLI.' }
     $selected = Read-ReaProfile $Profile
-    $npx = Get-NpxCommand
+    Install-ReaRuntime $selected.reaVersion | Out-Null
     Invoke-InReaProfile $selected {
-        & $npx --yes "rea-agents@$($selected.reaVersion)" $Command @ReaArguments
-        if ($LASTEXITCODE -ne 0) { throw "REA terminato con codice $LASTEXITCODE." }
+        Invoke-ReaCommand $selected.reaVersion (@($Command) + @($ReaArguments))
     }
 } catch { Write-Error $_ -ErrorAction Continue; exit 1 }

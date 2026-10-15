@@ -16,17 +16,20 @@ function Assert-Fails([scriptblock]$Action, [string]$Pattern) {
     try { & $Action } catch { $failure = $_ }
     Assert ($null -ne $failure -and "$failure" -match $Pattern) "errore atteso $Pattern"
 }
-function Get-NpxCommand { return 'npx.cmd' }
+function Install-ReaRuntime { param($Version); Assert ($Version -eq '6.5.0') 'runtime fissato prima del comando' }
+function Get-ReaLaunchCommand { param($Version); return [pscustomobject]@{ Executable = (Get-Command node.exe).Source; Prefix = @('C:\REA with spaces\scripts\rea.mjs'); Version = $Version } }
 function Read-Host { param($Prompt); if ($script:Answers.Count -eq 0) { throw "Prompt inatteso: $Prompt" }; return $script:Answers.Dequeue() }
-function npx.cmd {
-    $script:Calls += [pscustomobject]@{ Arguments = @($args); Provider = $env:REA_ANALYSIS_PROVIDER; Java = $env:JAVA_HOME }
-    Set-Variable LASTEXITCODE 0 -Scope 1
+function Invoke-ReaCommand {
+    param($Version, $Arguments)
+    $script:Calls += [pscustomobject]@{ Arguments = @($Arguments); Provider = $env:REA_ANALYSIS_PROVIDER; Java = $env:JAVA_HOME }
 }
 
 try {
     $script:Answers.Enqueue('0')
     Invoke-ProfileSetup
     Assert (-not (Test-Path -LiteralPath $testRoot)) 'annullamento del menu non crea profili'
+    Invoke-ProfileSetup -Action Runtime
+    Assert (-not (Test-Path -LiteralPath (Join-Path $testRoot '.rea/profiles/default.json'))) 'preparazione runtime non richiede o crea un profilo'
     Invoke-ProfileSetup -Action Create -Profile base
     $base = Read-ReaProfile base
     Assert ($base.reaVersion -eq '6.5.0' -and $base.template -eq 'builtin' -and @($base.environment.PSObject.Properties).Count -eq 0) 'creazione builtin non inventa strumenti'
@@ -46,12 +49,12 @@ try {
     Invoke-ProfileSetup -Action Set -Profile native -Key JAVA_HOME -Value 'C:\Tools with spaces\JDK'
     $env:REA_ANALYSIS_PROVIDER = 'previous'
     Invoke-ProfileSetup -Action Doctor -Profile native
-    Assert (($script:Calls[0].Arguments -join ' ') -eq '--yes rea-agents@6.5.0 doctor --provider ghidra --json' -and $script:Calls[0].Provider -eq 'ghidra' -and $env:REA_ANALYSIS_PROVIDER -eq 'previous') 'doctor del provider usa profilo e ripristina ambiente'
+    Assert (($script:Calls[0].Arguments -join ' ') -eq 'doctor --provider ghidra --json' -and $script:Calls[0].Provider -eq 'ghidra' -and $env:REA_ANALYSIS_PROVIDER -eq 'previous') 'doctor del provider usa profilo e ripristina ambiente'
     Assert-Fails { Invoke-InReaProfile (Read-ReaProfile native) { throw 'failed-action' } } 'failed-action'
     Assert ($env:REA_ANALYSIS_PROVIDER -eq 'previous') 'ambiente ripristinato anche se il comando fallisce'
     Invoke-ProfileSetup -Action Mcp -Profile native
     $export = Get-Content -LiteralPath (Join-Path $testRoot '.rea/mcp/native.json') -Raw | ConvertFrom-Json
-    Assert ($export.mcpServers.'rea-native'.command -eq 'cmd.exe' -and ($export.mcpServers.'rea-native'.args -join ' ') -eq '/d /c npx.cmd --yes rea-agents@6.5.0 mcp' -and $export.mcpServers.'rea-native'.env.JAVA_HOME -eq 'C:\Tools with spaces\JDK') 'snapshot MCP diretto contiene tutte le variabili e versione'
+    Assert ($export.mcpServers.'rea-native'.command -eq (Get-Command node.exe).Source -and ($export.mcpServers.'rea-native'.args -join '|') -eq 'C:\REA with spaces\scripts\rea.mjs|mcp' -and $export.mcpServers.'rea-native'.env.JAVA_HOME -eq 'C:\Tools with spaces\JDK') 'snapshot MCP diretto contiene node, entry locale e variabili'
     $toml = Get-Content -LiteralPath (Join-Path $testRoot '.rea/mcp/native.toml') -Raw
     Assert ($toml -match '\[mcp_servers.rea-native.env\]' -and $toml.Contains('C:\\Tools with spaces\\JDK')) 'frammento TOML conserva i percorsi Windows'
     Invoke-ProfileSetup -Action Set -Profile native -Key JAVA_HOME -Value 'C:\other-jdk'
@@ -88,7 +91,13 @@ try {
     $script:Answers.Enqueue('s')
     Invoke-ProfileSetup -Action Register -Profile native
     [string[]]$registrationArgs = Get-Content -LiteralPath $script:RegistrationPath -Raw | ConvertFrom-Json
-    Assert ($registrationArgs[0] -eq 'mcp' -and $registrationArgs[2] -eq 'rea-native' -and $registrationArgs -contains 'HOPPER_LOADER_ARGS_JSON=["a", "b"]' -and ($registrationArgs[-8..-1] -join ' ') -eq '-- cmd.exe /d /c npx.cmd --yes rea-agents@6.5.0 mcp') 'registrazione profilo usa nome distinto e JSON integro su processo nativo reale'
+    $expectedLaunch = @('--', (Get-Command node.exe).Source, 'C:\REA with spaces\scripts\rea.mjs', 'mcp')
+    Assert ($registrationArgs[0] -eq 'mcp' -and $registrationArgs[2] -eq 'rea-native' -and $registrationArgs -contains 'HOPPER_LOADER_ARGS_JSON=["a", "b"]' -and (ConvertTo-Json -InputObject @($registrationArgs[-4..-1]) -Compress) -eq (ConvertTo-Json -InputObject $expectedLaunch -Compress)) 'registrazione profilo conserva gli argomenti distinti su processo nativo reale'
+    Invoke-ProfileSetup -Action Register -Profile native -Yes
+    Assert ($script:Answers.Count -eq 0) 'Yes registra senza richiedere conferma interattiva'
+    Invoke-ProfileSetup -Action Client -Profile native -Client codex -Yes
+    [string[]]$clientRegistrationArgs = Get-Content -LiteralPath $script:RegistrationPath -Raw | ConvertFrom-Json
+    Assert ((ConvertTo-Json -InputObject $clientRegistrationArgs -Compress) -eq (ConvertTo-Json -InputObject $registrationArgs -Compress)) 'Client Codex riusa la stessa registrazione diretta del profilo'
     Invoke-ProfileSetup -Action Client -Profile base -Client cursor
     Assert (($script:Calls[-1].Arguments -join ' ') -match 'setup --client cursor$') 'setup ufficiale accetta client selezionato'
     $bad = [pscustomobject]@{ schemaVersion = 1; reaVersion = 'latest;bad'; environment = [pscustomobject]@{} }

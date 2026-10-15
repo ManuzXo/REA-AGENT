@@ -10,6 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $script:SetupRoot = Split-Path $PSScriptRoot -Parent
 $script:ReaVersion = (Get-Content -LiteralPath (Join-Path $script:SetupRoot 'config/rea.json') -Raw | ConvertFrom-Json).reaVersion
+. (Join-Path $PSScriptRoot 'rea-profiles.ps1')
 
 function Get-ToolManifest {
     @(
@@ -95,18 +96,6 @@ function Install-ManagedTool($Tool, [string]$Root) {
     }
 }
 
-function Get-NpxCommand {
-    if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) { throw 'Installa Node.js supportato con npm prima di procedere.' }
-    $nodeVersion = & node.exe --version
-    if ($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch '^v(\d+)\.(\d+)\.(\d+)$') { throw 'Impossibile verificare la versione stabile di Node.js.' }
-    $major = [int]$Matches[1]
-    $minor = [int]$Matches[2]
-    if (-not (($major -eq 22 -and $minor -ge 19) -or ($major -eq 24 -and $minor -ge 11) -or $major -ge 26)) { throw 'REA richiede Node.js 22.19+, 24.11+ o >=26.' }
-    $npx = Get-Command npx.cmd -ErrorAction SilentlyContinue
-    if (-not $npx) { throw 'npx.cmd non disponibile nel PATH. Installa Node.js con npm.' }
-    return $npx.Source
-}
-
 function Invoke-RepositorySetup {
     [CmdletBinding()]
     param(
@@ -125,7 +114,6 @@ function Invoke-RepositorySetup {
             default { Write-Host 'Setup annullato.'; return }
         }
     }
-    $npx = Get-NpxCommand
     if ($Mode -eq 'Install' -and -not (Get-Command tar.exe -ErrorAction SilentlyContinue)) { throw 'tar.exe richiesto per estrarre archivi con percorsi lunghi. Usa Windows 10/11 aggiornato o la modalita Existing.' }
     if ($Mode -eq 'Rea') {
         & (Join-Path $PSScriptRoot 'setup-rea.ps1') -ReaVersion $script:ReaVersion
@@ -151,27 +139,27 @@ function Invoke-RepositorySetup {
             Write-Host "Destinazione: $(Join-Path $ToolsDirectory $tool.InstallDir)"
         }
     }
-    Write-Host 'Il controllo provider puo scaricare REA tramite npm. Le variabili GHIDRA_INSTALL_DIR e JAVA_HOME saranno temporanee nel processo.'
-    if (-not $SkipMcp) { Write-Host 'Il setup REA proporra la registrazione MCP in Codex utente, inclusi i percorsi verificati. Nessuna modifica globale a PATH o Java.' }
+    Write-Host 'Il controllo provider prepara REA locale tramite npm. Le variabili GHIDRA_INSTALL_DIR e JAVA_HOME saranno temporanee nel processo.'
+    if (-not $SkipMcp) { Write-Host 'Verra aggiornato il profilo ghidra e registrato rea-ghidra in Codex utente con i percorsi verificati. Nessuna modifica globale a PATH o Java.' }
     if ((Read-Host 'Procedere? [s/N]') -notmatch '^(s|si|y|yes)$') { Write-Host 'Setup annullato.'; return }
     if ($Mode -eq 'Install') {
         $GhidraPath = Install-ManagedTool $manifest[0] $ToolsDirectory
         $JavaPath = Install-ManagedTool $manifest[1] $ToolsDirectory
     }
-    $previousGhidra = $env:GHIDRA_INSTALL_DIR
-    $previousJava = $env:JAVA_HOME
-    try {
-        $env:GHIDRA_INSTALL_DIR = $GhidraPath
-        $env:JAVA_HOME = $JavaPath
-        & $npx --yes "rea-agents@$script:ReaVersion" doctor --provider ghidra --json
-        if ($LASTEXITCODE -ne 0) { throw "REA doctor ha rifiutato il provider Ghidra (codice $LASTEXITCODE). MCP non configurato." }
-        if (-not $SkipMcp) { & (Join-Path $PSScriptRoot 'setup-rea.ps1') -ReaVersion $script:ReaVersion }
-        if ($SkipMcp) { Write-Host 'Provider Ghidra verificato. Registrazione MCP saltata.' }
-        else { Write-Host 'Provider Ghidra verificato. Riavvia Codex per controllare la registrazione MCP.' }
-    } finally {
-        $env:GHIDRA_INSTALL_DIR = $previousGhidra
-        $env:JAVA_HOME = $previousJava
+    $profilePath = Get-ProfilePath ghidra
+    if (Test-Path -LiteralPath $profilePath) { $profileData = Read-ReaProfile ghidra }
+    else { $profileData = [pscustomobject]@{ schemaVersion = 1; reaVersion = $script:ReaVersion; template = 'native-ghidra'; description = $script:ReaConfig.templates.'native-ghidra'.description; environment = [pscustomobject]@{} } }
+    $profileData.reaVersion = $script:ReaVersion
+    $profileData.template = 'native-ghidra'
+    foreach ($item in @{ REA_ANALYSIS_PROVIDER = 'ghidra'; GHIDRA_INSTALL_DIR = $GhidraPath; JAVA_HOME = $JavaPath }.GetEnumerator()) {
+        $profileData.environment | Add-Member -MemberType NoteProperty -Name $item.Key -Value $item.Value -Force
     }
+    Install-ReaRuntime $profileData.reaVersion | Out-Null
+    Invoke-InReaProfile $profileData { Invoke-ReaCommand $profileData.reaVersion @('doctor', '--provider', 'ghidra', '--json') }
+    Save-ReaProfile ghidra $profileData
+    if (-not $SkipMcp) { Export-ReaMcp ghidra $profileData; Register-ReaMcp ghidra $profileData }
+    if ($SkipMcp) { Write-Host 'Provider Ghidra verificato. Registrazione MCP saltata.' }
+    else { Write-Host 'Provider Ghidra verificato. Riavvia Codex per controllare la registrazione MCP.' }
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
