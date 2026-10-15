@@ -60,6 +60,30 @@ Un **client** e l'agente che si collega a MCP, per esempio Codex o Cursor. Un **
 | `analysis/reports/` | Rapporti testuali e decisioni verificabili |
 | `AGENTS.md` | Istruzioni operative dell'agente |
 
+## Come comunica il server MCP
+
+Il client avvia il server REA come processo figlio. Il server avvia Ghidra solo quando apri un binario.
+
+```mermaid
+flowchart LR
+    C["Claude Code<br/>client MCP"]
+    S["node.exe rea.mjs mcp<br/>server REA"]
+    G["Ghidra headless<br/>ReaGhidraBridge.java"]
+    C -- "stdin: richieste JSON-RPC" --> S
+    S -- "stdout: risposte" --> C
+    S -- "TCP 127.0.0.1 + token" --> G
+    G -- "risultati JSON" --> S
+```
+
+1. Il client legge la registrazione `rea-<nome>` e avvia `node.exe rea.mjs mcp` con le variabili del profilo.
+2. Client e server si scambiano messaggi JSON-RPC 2.0 su stdin e stdout, una riga per messaggio. La sessione inizia con `initialize` e `tools/list`, poi ogni strumento e una `tools/call`.
+3. Con il profilo Ghidra, `open_binary` copia il campione in una directory privata e avvia `analyzeHeadless` con il bridge Java. Il bridge apre una porta su 127.0.0.1 e il server si collega con un token casuale.
+4. Ogni chiamata di analisi passa al bridge come riga JSON. Il bridge esegue una richiesta alla volta e il server restituisce il risultato al client con le evidenze.
+
+Lo stdout del server contiene solo JSON. I log vanno su stderr. Dopo una nuova registrazione, riavvia il client.
+
+[analysis/reports/mcp-architettura.html](analysis/reports/mcp-architettura.html) contiene lo schema completo. Aprilo nel browser per vedere i componenti di ogni processo, la sequenza dei messaggi e il confronto tra i due protocolli. Il file cita i sorgenti REA e gli script del repository usati per ricostruire il flusso.
+
 ## Versioni e controlli
 
 REA e fissato alla versione `6.5.0` in `config/rea.json` e nel manifest e lockfile di `config/rea-runtime/`. Ogni profilo conserva la propria versione. Per aggiornare il runtime, aggiorna insieme questi file, verifica il nuovo pacchetto, modifica i profili interessati e rigenera MCP. Un profilo con una versione senza lockfile locale richiede la preparazione del relativo runtime. Le versioni e gli hash degli strumenti portatili sono fissati nei rispettivi manifest degli installer. Le installazioni WinGet seguono il pacchetto corrente e le condizioni proposte dal gestore.

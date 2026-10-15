@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Architettura MCP rea-ghidra</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: colonna di lettura singola, figure larghe con scroll orizzontale proprio. Teal = MCP, ambra = bridge Ghidra. */
+:root {
+  --bg: #f5f7fa; --surface: #ffffff; --fg: #1a2130; --muted: #5a6476; --line: #c8cfdb;
+  --accent: #0d6b88; --accent2: #a2560a; --band: #e9eef5;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151c; --surface: #19202a; --fg: #e3e8ef; --muted: #98a2b3; --line: #2f3846;
+  --accent: #52b9d8; --accent2: #e3a04a; --band: #161c25; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11151c; --surface: #19202a; --fg: #e3e8ef; --muted: #98a2b3; --line: #2f3846;
+  --accent: #52b9d8; --accent2: #e3a04a; --band: #161c25; color-scheme: dark }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; }
+main { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.prose { max-width: 68ch; }
+h1 { font-size: 28px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 19px; margin: 0 0 8px; text-wrap: balance; }
+p { margin: 0 0 10px; }
+code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border-radius: 3px; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
+.scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; min-width: 760px; height: auto; color: var(--fg); }
+figcaption { color: var(--muted); font-size: 13.5px; margin-top: 10px; max-width: 80ch; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+td:first-child { font-weight: 600; white-space: nowrap; }
+.k-mcp { color: var(--accent); } .k-br { color: var(--accent2); }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.src { font: 12px var(--mono); color: var(--muted); }
+/* SVG */
+.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.inner { fill: var(--bg); stroke: var(--line); }
+.band { fill: var(--band); }
+.t { fill: var(--fg); font: 600 13px var(--sans); }
+.th { fill: var(--fg); font: 600 15px var(--sans); }
+.s { fill: var(--muted); font: 11px var(--mono); }
+.lm { fill: var(--accent); font: 500 11px var(--mono); }
+.lb { fill: var(--accent2); font: 500 11px var(--mono); }
+.lq { fill: var(--muted); font: 11px var(--mono); }
+.ph { fill: var(--muted); font: 500 11px var(--mono); letter-spacing: .08em; }
+.mcp { stroke: var(--accent); stroke-width: 1.7; fill: none; }
+.br { stroke: var(--accent2); stroke-width: 1.7; fill: none; }
+.mut { stroke: var(--muted); stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; }
+.life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 4; }
+.fm { fill: var(--accent); } .fb { fill: var(--accent2); } .fq { fill: var(--muted); }
+.note { fill: var(--band); stroke: var(--line); }
+</style>
+</head>
+<body>
+<main>
+  <header class="prose">
+    <div class="eyebrow">rea-test · REA 6.5.0 · profilo ghidra</div>
+    <h1>Come Claude Code parla con Ghidra tramite il server MCP rea-ghidra</h1>
+  </header>
+
+  <section class="prose">
+    <p>Ci sono tre processi e due protocolli. Claude Code avvia <code>node.exe rea.mjs mcp</code> come processo figlio e gli parla in JSON-RPC 2.0 su stdin e stdout. Quando apri un binario, il server REA avvia a sua volta Ghidra headless con uno script Java che fa da ponte. Il server e il ponte si parlano con righe JSON su una porta TCP locale, autenticate da un token casuale.</p>
+    <p>Nessuno dei due protocolli passa dalla rete. Il client non sa nulla di Ghidra. Vede solo 207 tool MCP con nome, descrizione e schema.</p>
+  </section>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 510" role="img" aria-label="Claude Code avvia il server REA e gli parla via stdio. Il server avvia Ghidra headless e parla col bridge Java via TCP loopback con token. Entrambi condividono una directory runtime privata.">
+      <defs>
+        <marker id="am" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fm"/></marker>
+        <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fb"/></marker>
+        <marker id="aq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fq"/></marker>
+      </defs>
+
+      <line x1="20" y1="24" x2="52" y2="24" class="mcp" marker-end="url(#am)"/>
+      <text x="60" y="28" class="lm">MCP · JSON-RPC 2.0 su stdio</text>
+      <line x1="290" y1="24" x2="322" y2="24" class="br" marker-end="url(#ab)"/>
+      <text x="330" y="28" class="lb">bridge REA · JSON su TCP 127.0.0.1 + token</text>
+      <line x1="660" y1="24" x2="692" y2="24" class="mut" marker-end="url(#aq)"/>
+      <text x="700" y="28" class="lq">avvio processo / file su disco</text>
+
+      <rect x="20" y="60" width="220" height="300" rx="6" class="box"/>
+      <text x="36" y="84" class="th">Claude Code</text>
+      <text x="36" y="101" class="s">client MCP</text>
+      <rect x="36" y="118" width="188" height="56" rx="4" class="inner"/>
+      <text x="48" y="141" class="t">Modello</text>
+      <text x="48" y="159" class="s">sceglie tool e argomenti</text>
+      <rect x="36" y="190" width="188" height="56" rx="4" class="inner"/>
+      <text x="48" y="213" class="t">Client MCP</text>
+      <text x="48" y="231" class="s">id, timeout, sessione</text>
+      <rect x="36" y="262" width="188" height="78" rx="4" class="inner"/>
+      <text x="48" y="285" class="t">~/.claude.json</text>
+      <text x="48" y="303" class="s">rea-ghidra · type stdio</text>
+      <text x="48" y="320" class="s">node.exe rea.mjs mcp</text>
+
+      <rect x="360" y="60" width="280" height="300" rx="6" class="box"/>
+      <text x="376" y="84" class="th">node.exe rea.mjs mcp</text>
+      <text x="376" y="101" class="s">server MCP · REA 6.5.0</text>
+      <rect x="376" y="118" width="248" height="56" rx="4" class="inner"/>
+      <text x="388" y="141" class="t">Trasporto stdio</text>
+      <text x="388" y="159" class="s">una riga JSON per messaggio</text>
+      <rect x="376" y="190" width="248" height="56" rx="4" class="inner"/>
+      <text x="388" y="213" class="t">McpServer</text>
+      <text x="388" y="231" class="s">207 tool · registerTool()</text>
+      <rect x="376" y="262" width="248" height="78" rx="4" class="inner"/>
+      <text x="388" y="285" class="t">Provider Ghidra</text>
+      <text x="388" y="303" class="s">GhidraClient · token 32 byte</text>
+      <text x="388" y="320" class="s">coda FIFO, 1 richiesta alla volta</text>
+
+      <rect x="760" y="60" width="220" height="300" rx="6" class="box"/>
+      <text x="776" y="84" class="th">analyzeHeadless</text>
+      <text x="776" y="101" class="s">Ghidra 12.1.4 · JDK 21</text>
+      <rect x="776" y="118" width="188" height="56" rx="4" class="inner"/>
+      <text x="788" y="141" class="t">Import e analisi</text>
+      <text x="788" y="159" class="s">auto-analysis headless</text>
+      <rect x="776" y="190" width="188" height="56" rx="4" class="inner"/>
+      <text x="788" y="213" class="t">ReaGhidraBridge</text>
+      <text x="788" y="231" class="s">-postScript · server TCP</text>
+      <rect x="776" y="262" width="188" height="78" rx="4" class="inner"/>
+      <text x="788" y="285" class="t">Program Ghidra</text>
+      <text x="788" y="303" class="s">decompiler, xref</text>
+      <text x="788" y="320" class="s">listing, stringhe</text>
+
+      <line x1="242" y1="140" x2="356" y2="140" class="mcp" marker-end="url(#am)"/>
+      <text x="300" y="133" class="lm" text-anchor="middle">stdin · richieste</text>
+      <line x1="358" y1="172" x2="244" y2="172" class="mcp" marker-end="url(#am)"/>
+      <text x="300" y="165" class="lm" text-anchor="middle">stdout · risposte</text>
+      <line x1="358" y1="204" x2="244" y2="204" class="mut" marker-end="url(#aq)"/>
+      <text x="300" y="197" class="lq" text-anchor="middle">stderr · log</text>
+      <line x1="242" y1="320" x2="356" y2="320" class="mut" marker-end="url(#aq)"/>
+      <text x="300" y="313" class="lq" text-anchor="middle">avvia + env</text>
+
+      <line x1="642" y1="146" x2="756" y2="146" class="mut" marker-end="url(#aq)"/>
+      <text x="700" y="139" class="lq" text-anchor="middle">avvia processo</text>
+      <line x1="642" y1="290" x2="756" y2="290" class="br" marker-end="url(#ab)"/>
+      <text x="700" y="283" class="lb" text-anchor="middle">richiesta + token</text>
+      <line x1="758" y1="322" x2="644" y2="322" class="br" marker-end="url(#ab)"/>
+      <text x="700" y="315" class="lb" text-anchor="middle">risposta</text>
+
+      <rect x="360" y="410" width="620" height="80" rx="6" class="box"/>
+      <text x="376" y="434" class="t">Directory runtime privata (una per sessione)</text>
+      <text x="376" y="464" class="s">snapshot target + SHA-256</text>
+      <text x="590" y="464" class="s">descrittore: token, run_id</text>
+      <text x="800" y="464" class="s">bridge-endpoint.json</text>
+      <line x1="480" y1="362" x2="480" y2="406" class="mut" marker-end="url(#aq)"/>
+      <text x="474" y="392" class="lq" text-anchor="end">scrive</text>
+      <line x1="600" y1="408" x2="600" y2="364" class="mut" marker-end="url(#aq)"/>
+      <text x="606" y="392" class="lq">legge porta</text>
+      <line x1="800" y1="362" x2="800" y2="406" class="mut" marker-end="url(#aq)"/>
+      <text x="794" y="392" class="lq" text-anchor="end">scrive porta</text>
+      <line x1="900" y1="408" x2="900" y2="364" class="mut" marker-end="url(#aq)"/>
+      <text x="906" y="392" class="lq">legge token</text>
+
+      <rect x="20" y="410" width="220" height="80" rx="6" class="box"/>
+      <text x="36" y="434" class="t">Registrazione (una volta)</text>
+      <text x="36" y="456" class="s">setup.bat -Action Register</text>
+      <text x="36" y="474" class="s">→ claude mcp add-json</text>
+      <line x1="130" y1="408" x2="130" y2="344" class="mut" marker-end="url(#aq)"/>
+      <text x="136" y="384" class="lq">scrive</text>
+    </svg>
+    </div>
+    <figcaption>Struttura. Il client e il server sono collegati solo dalle tre pipe standard del processo figlio. Il server e Ghidra sono collegati da una porta TCP su 127.0.0.1 che il bridge sceglie da sé e pubblica in <code>bridge-endpoint.json</code>. Su macOS e Linux REA usa un socket Unix al posto della porta TCP.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 740" role="img" aria-label="Sequenza: handshake MCP con initialize e tools/list, poi open_binary che avvia Ghidra e collega il bridge, poi chiamate di analisi inoltrate al bridge con token, poi chiusura.">
+      <defs>
+        <marker id="sm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fm"/></marker>
+        <marker id="sb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fb"/></marker>
+        <marker id="sq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fq"/></marker>
+      </defs>
+
+      <rect x="20" y="82" width="960" height="180" class="band"/>
+      <rect x="20" y="270" width="960" height="206" class="band"/>
+      <rect x="20" y="484" width="960" height="146" class="band"/>
+      <rect x="20" y="638" width="960" height="80" class="band"/>
+      <text x="28" y="98" class="ph">1 · HANDSHAKE</text>
+      <text x="28" y="286" class="ph">2 · APERTURA</text>
+      <text x="28" y="500" class="ph">3 · ANALISI</text>
+      <text x="28" y="654" class="ph">4 · CHIUSURA</text>
+
+      <rect x="70" y="20" width="200" height="44" rx="5" class="box"/>
+      <text x="170" y="47" class="t" text-anchor="middle">Claude Code</text>
+      <rect x="400" y="20" width="200" height="44" rx="5" class="box"/>
+      <text x="500" y="47" class="t" text-anchor="middle">Server REA (Node)</text>
+      <rect x="730" y="20" width="200" height="44" rx="5" class="box"/>
+      <text x="830" y="47" class="t" text-anchor="middle">Ghidra + bridge (Java)</text>
+      <line x1="170" y1="64" x2="170" y2="730" class="life"/>
+      <line x1="500" y1="64" x2="500" y2="730" class="life"/>
+      <line x1="830" y1="64" x2="830" y2="730" class="life"/>
+
+      <line x1="170" y1="114" x2="496" y2="114" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="107" class="lm" text-anchor="middle">initialize {protocolVersion, clientInfo}</text>
+      <line x1="500" y1="148" x2="174" y2="148" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="141" class="lm" text-anchor="middle">result {serverInfo, capabilities}</text>
+      <line x1="170" y1="182" x2="496" y2="182" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="175" class="lm" text-anchor="middle">notifications/initialized (senza id)</text>
+      <line x1="170" y1="216" x2="496" y2="216" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="209" class="lm" text-anchor="middle">tools/list {cursor?}</text>
+      <line x1="500" y1="250" x2="174" y2="250" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="243" class="lm" text-anchor="middle">tools[] + nextCursor, finché c'è cursore</text>
+
+      <line x1="170" y1="302" x2="496" y2="302" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="295" class="lm" text-anchor="middle">tools/call open_binary {path}</text>
+      <rect x="512" y="316" width="290" height="26" rx="4" class="note"/>
+      <text x="657" y="333" class="s" text-anchor="middle">snapshot, SHA-256, token casuale</text>
+      <line x1="500" y1="372" x2="826" y2="372" class="mut" marker-end="url(#sq)"/>
+      <text x="665" y="365" class="lq" text-anchor="middle">avvia analyzeHeadless + bridge</text>
+      <rect x="842" y="386" width="136" height="26" rx="4" class="note"/>
+      <text x="910" y="403" class="s" text-anchor="middle">analizza, apre porta</text>
+      <line x1="500" y1="436" x2="826" y2="436" class="br" marker-end="url(#sb)"/>
+      <text x="665" y="429" class="lb" text-anchor="middle">connect (poll 50 ms) + handshake</text>
+      <line x1="500" y1="464" x2="174" y2="464" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="457" class="lm" text-anchor="middle">result: sessione pronta</text>
+
+      <line x1="170" y1="516" x2="496" y2="516" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="509" class="lm" text-anchor="middle">tools/call procedure_pseudo_code</text>
+      <line x1="500" y1="550" x2="826" y2="550" class="br" marker-end="url(#sb)"/>
+      <text x="665" y="543" class="lb" text-anchor="middle">{id, token, method, params}</text>
+      <line x1="830" y1="584" x2="504" y2="584" class="br" marker-end="url(#sb)"/>
+      <text x="665" y="577" class="lb" text-anchor="middle">{id, ok: true, result}</text>
+      <line x1="500" y1="618" x2="174" y2="618" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="611" class="lm" text-anchor="middle">result {content, Evidence}</text>
+
+      <line x1="170" y1="670" x2="496" y2="670" class="mcp" marker-end="url(#sm)"/>
+      <text x="335" y="663" class="lm" text-anchor="middle">tools/call close_binary</text>
+      <line x1="500" y1="704" x2="826" y2="704" class="mut" marker-end="url(#sq)"/>
+      <text x="665" y="697" class="lq" text-anchor="middle">chiude sessione, processo termina</text>
+    </svg>
+    </div>
+    <figcaption>Sequenza di una sessione tipica. Le fasi 1 e 3 sono lette dal codice di <code>scripts/test-mcp.mjs</code> e del pacchetto REA. Il momento esatto in cui parte Ghidra (all'apertura del binario) è dedotto da <code>GhidraClient</code>, che lancia il processo con il percorso dello snapshot del target. Non è stato osservato con un trace.</figcaption>
+  </figure>
+
+  <section>
+    <h2>I due protocolli a confronto</h2>
+    <div class="scroll">
+    <table>
+      <thead><tr><th></th><th class="k-mcp">Client ↔ server (MCP)</th><th class="k-br">Server ↔ Ghidra (bridge REA)</th></tr></thead>
+      <tbody>
+        <tr><td>Trasporto</td><td>stdin/stdout del processo figlio</td><td>TCP su 127.0.0.1, porta scelta dal bridge. Socket Unix fuori da Windows</td></tr>
+        <tr><td>Formato</td><td>JSON-RPC 2.0, un messaggio per riga</td><td>JSON per riga, chiavi esatte <code>id, token, method, params</code></td></tr>
+        <tr><td>Risposta</td><td><code>{jsonrpc, id, result | error}</code></td><td><code>{id, ok: true, result}</code> oppure <code>{id, ok: false, error{code, message}}</code></td></tr>
+        <tr><td>Autenticazione</td><td>Nessuna. Il canale è privato del processo</td><td>Token di 32 byte generato a ogni avvio, ripetuto in ogni richiesta</td></tr>
+        <tr><td>Concorrenza</td><td>Più richieste in volo, legate dall'id</td><td>Coda FIFO, un'operazione sul Program alla volta</td></tr>
+        <tr><td>Chi lo definisce</td><td>Standard MCP</td><td>REA, interno. Mai visto dal client</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="prose">
+    <h2>Dove sta nel repository</h2>
+    <ul>
+      <li><code>scripts/rea-profiles.ps1</code> registra il server. <code>Register-ReaClaudeMcp</code> chiama <code>claude mcp add-json --scope local</code> con <code>type: stdio</code>, il comando Node e le variabili del profilo.</li>
+      <li><code>scripts/rea-runtime.ps1</code> installa REA con <code>npm ci</code> in <code>.tools/rea-runtime/6.5.0</code> e lo pubblica solo dopo che initialize, tools/list e binary_session passano.</li>
+      <li><code>scripts/test-mcp.mjs</code> è un client MCP minimale. Fa esattamente la fase 1 della sequenza e poi chiama binary_session. È il modo più rapido per vedere il protocollo dal vivo.</li>
+      <li><code>.rea/profiles/ghidra.json</code> contiene <code>REA_ANALYSIS_PROVIDER=ghidra</code>, <code>GHIDRA_INSTALL_DIR</code> e <code>JAVA_HOME</code>, che diventano l'ambiente del processo server.</li>
+      <li>Nel pacchetto REA. <code>dist/ghidra/GhidraLauncher.js</code> costruisce la riga di <code>analyzeHeadless</code>, <code>GhidraSocketConnection.js</code> e <code>GhidraClientWire.js</code> gestiscono il bridge, <code>bridge/ghidra/ReaGhidraBridge.java</code> è il lato Java.</li>
+    </ul>
+  </section>
+
+  <section class="prose">
+    <h2>Cose da sapere</h2>
+    <ul>
+      <li>Lo stdout del server deve contenere solo JSON. Qualsiasi testo stampato lì rompe il client. <code>test-mcp.mjs</code> fallisce apposta in quel caso. I log vanno su stderr.</li>
+      <li>Claude Code legge la registrazione all'avvio. Dopo un nuovo <code>Register</code> serve riavviare o riconnettere il server. Il rapporto <code>ghidra-mcp-fix-verification.md</code> documenta proprio una sessione rimasta col vecchio errore.</li>
+      <li>Il guasto storico era nel lancio via <code>npx</code>. Una cache npm con <code>ws/wrapper.mjs</code> vuoto faceva morire Node prima della risposta a initialize. Oggi la registrazione lancia Node direttamente sul runtime locale bloccato dal lockfile.</li>
+      <li>Ghidra lavora su una copia del binario, verificata con SHA-256. Il file originale non viene toccato e il campione non viene eseguito.</li>
+    </ul>
+    <p class="src">Fonti lette in questa sessione: scripts/rea-profiles.ps1, scripts/rea-runtime.ps1, scripts/test-mcp.mjs, ~/.claude.json (voce rea-ghidra), analysis/reports/*.md, rea-agents/dist/ghidra/*.js, rea-agents/bridge/ghidra/ReaGhidraBridge.java.</p>
+  </section>
+</main>
+</body>
+</html>
