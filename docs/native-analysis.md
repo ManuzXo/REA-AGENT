@@ -10,7 +10,7 @@ Per scegliere il tipo di analisi, consulta [il catalogo REA](rea-capabilities.md
 4. Copia il campione in `analysis/samples/` (la cartella è ignorata da Git) e annota provenienza, hash e autorizzazione all’analisi.
 5. Chiedi all’agente di aprire il binario con REA e selezionare esplicitamente il provider. Per campioni nativi, REA può restituire pseudocodice, assembly, stringhe, simboli, chiamate e riferimenti, secondo il formato e il provider disponibili.
 6. Segui le chiamate o gli indirizzi pertinenti e registra solo evidenze necessarie alla domanda.
-7. Scrivi il rapporto in `analysis/reports/` con il modello qui sotto.
+7. Scrivi il rapporto in `analysis/reports/<nome-eseguibile>/` con il modello qui sotto. La cartella prende il nome del file senza estensione ed è ignorata da Git.
 
 ## Ghidra e IDA
 

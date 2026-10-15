@@ -2,6 +2,7 @@
 analysis/samples/**
 analysis/captures/**
 analysis/tmp/**
+analysis/reports/*/
 
 # Local tool configuration and secrets
 .tools/

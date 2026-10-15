@@ -4,5 +4,6 @@
 - Parti da una domanda specifica. Collega ogni conclusione a output REA, indirizzi, simboli o altre evidenze osservabili; separa i fatti dalle ipotesi.
 - Non inventare risultati di Ghidra/IDA né dichiarare disponibile un provider senza verificarlo nella sessione o con `rea doctor`.
 - Conserva rapporti testuali in `analysis/reports/`. I campioni in `analysis/samples/` restano locali e ignorati da Git.
+- Ogni rapporto sull'analisi di un programma va in `analysis/reports/<nome-eseguibile>/`, dove `<nome-eseguibile>` è il nome del file senza estensione (per `memory.exe` la cartella è `analysis/reports/memory/`). Crea la cartella se manca. Non salvare questi rapporti direttamente in `analysis/reports/`. Le sottocartelle di `analysis/reports/` sono ignorate da Git.
 - Per i binari non fidati, preferisci un ambiente isolato. Non eseguire il campione salvo richiesta esplicita e ambiente predisposto; in tal caso descrivi prima gli effetti previsti.
 - Analizza solo software che l’utente possiede o è autorizzato a esaminare.

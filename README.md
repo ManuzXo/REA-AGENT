@@ -58,6 +58,7 @@ Un **client** e l'agente che si collega a MCP, per esempio Codex o Cursor. Un **
 | `docs/` | Catalogo, configurazione, utilizzo e analisi nativa |
 | `analysis/samples/`, `analysis/captures/`, `analysis/tmp/` | Campioni, catture e dati temporanei locali |
 | `analysis/reports/` | Rapporti testuali e decisioni verificabili |
+| `analysis/reports/<nome-eseguibile>/` | Rapporti sull'analisi di un singolo programma, ignorati da Git |
 | `AGENTS.md` | Istruzioni operative dell'agente |
 
 ## Come comunica il server MCP

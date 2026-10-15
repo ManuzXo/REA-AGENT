@@ -9,13 +9,13 @@ Questa guida parte da un profilo già creato. Per prepararlo segui [setup-profil
 3. Chiedi all'agente di chiamare `binary_session` senza aprire un target.
 4. Leggi disponibilità, limiti e requisito del client per l'operazione scelta.
 
-Usa campioni in `analysis/samples/` e salva report in `analysis/reports/`. Parti da un percorso assoluto e da una domanda verificabile. Chiedi di distinguere risultati osservati, inferenze e incognite.
+Usa campioni in `analysis/samples/` e salva i report di ogni programma in `analysis/reports/<nome-eseguibile>/`, una cartella ignorata da Git. Parti da un percorso assoluto e da una domanda verificabile. Chiedi di distinguere risultati osservati, inferenze e incognite.
 
 ## Analizzare un eseguibile con Ghidra, Hopper o IDA
 
 Prima configura il provider. Apri un binario originale e specifica il provider quando più motori sono disponibili.
 
-> Usa REA e il provider ghidra su `C:\targets\programma.exe`. Individua la funzione che costruisce l'URL di aggiornamento. Mostra stringhe, riferimenti, indirizzi e pseudocodice che sostengono la conclusione. Non eseguire il programma. Salva il rapporto in `analysis/reports/aggiornamento.md`.
+> Usa REA e il provider ghidra su `C:\targets\programma.exe`. Individua la funzione che costruisce l'URL di aggiornamento. Mostra stringhe, riferimenti, indirizzi e pseudocodice che sostengono la conclusione. Non eseguire il programma. Salva il rapporto in `analysis/reports/programma/aggiornamento.md`.
 
 Dopo l'analisi esporta le Evidence utili e chiudi la sessione con `close_binary`. Per IDA attached apri prima lo stesso binario originale nella GUI. La presenza di un database IDA non sostituisce l'identità del binario originale.
 
